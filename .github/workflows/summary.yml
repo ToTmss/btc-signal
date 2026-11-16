@@ -9,6 +9,7 @@ on:
   workflow_dispatch: {}
 permissions:
   contents: write
+  actions: write
 concurrency: { group: summary, cancel-in-progress: false }
 jobs:
   loop:
@@ -47,3 +48,8 @@ jobs:
             python fetch_and_summarize.py > /dev/null && publish || echo "run failed $(date -u +%T)"
             sleep $(( INTERVAL - ( $(date +%s) - t0 ) > 5 ? INTERVAL - ( $(date +%s) - t0 ) : 5 ))
           done
+      - name: chain next run (cron on new repos can be unreliable)
+        if: always()
+        run: |
+          curl -s -X POST -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/actions/workflows/summary.yml/dispatches" -d '{"ref":"main"}'
