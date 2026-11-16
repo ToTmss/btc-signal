@@ -150,7 +150,36 @@ def s_false_break(c, ind, i, p):
     return None
 
 
+def s_ema_cross(c, ind, i, p):
+    """Fast momentum: EMA9 crosses EMA21 on the side of EMA50."""
+    if i < 60:
+        return None
+    if "ema9" not in ind:
+        cl = ind["close"]; ind["ema9"] = ema(cl, 9); ind["ema21"] = ema(cl, 21)
+    f, s, f0, s0 = ind["ema9"][i], ind["ema21"][i], ind["ema9"][i - 1], ind["ema21"][i - 1]
+    cl, a = c[i][4], ind["atr"][i]
+    if f0 <= s0 and f > s and cl > ind["ema50"][i]:
+        return "long", cl - p["stop_atr"] * a
+    if f0 >= s0 and f < s and cl < ind["ema50"][i]:
+        return "short", cl + p["stop_atr"] * a
+    return None
+
+
+def s_rsi_revert(c, ind, i, p):
+    """Mean reversion: RSI stretched and the bar turns back."""
+    if i < 20:
+        return None
+    r, (_, o, h, l, cl, v), a = ind["rsi"][i - 1], c[i], ind["atr"][i]
+    if r < p["lo"] and cl > o:
+        return "long", min(l, c[i - 1][3]) - 0.2 * a
+    if r > p["hi"] and cl < o:
+        return "short", max(h, c[i - 1][2]) + 0.2 * a
+    return None
+
+
 STRATEGIES = {
+    "ema_cross": (s_ema_cross, {"stop_atr": 1.2, "rr": 1.5, "max_bars": 36}),
+    "rsi_revert": (s_rsi_revert, {"lo": 28, "hi": 72, "rr": 1.5, "max_bars": 24}),
     "trend_pullback": (s_trend_pullback, {"buf": 0.2, "rr": 2.0, "max_bars": 48}),
     "breakout": (s_breakout, {"n": 24, "volx": 1.5, "stop_atr": 1.2, "rr": 3.0, "max_bars": 48}),
     "false_break": (s_false_break, {"n": 24, "volx": 1.2, "buf": 0.1, "rr": 2.0, "max_bars": 36}),

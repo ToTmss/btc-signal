@@ -7,6 +7,7 @@ Outputs (committed to the repo):
 import json, os, time, urllib.request, datetime
 import base64
 from engine import summarize, bias, FEE_SIDE
+import tournament
 from monitor import guards, check_position, filter_signals, brief
 
 
@@ -142,6 +143,7 @@ def main():
     pos, trades = repo_json("position.json", {}), repo_json("trades.json", [])
     s["blocked"] = guards(trades, now)
     s["signals"] = filter_signals(s, s["blocked"])
+    s["tournament"] = tournament.update(tfs, s["bias"]["score"], LEV)
     s["paper"] = update_paper(s, tfs[{"1h": "1h"}.get(TF_SIGNAL, TF_SIGNAL)])
     s["position"] = pos or None
     s["pos_status"], s["action"] = check_position(pos, s, now) if pos else (None, None)

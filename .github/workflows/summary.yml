@@ -30,12 +30,12 @@ jobs:
       - name: restore state from data branch
         run: |
           git fetch -q origin data || exit 0
-          git checkout origin/data -- paper.json state.json 2>/dev/null || true
+          for f in paper.json state.json tournament.json; do git checkout origin/data -- $f 2>/dev/null || true; done
       - name: loop
         run: |
           publish() {
             tmp=$(mktemp -d)
-            cp summary.json paper.json "$tmp"/ ; cp state.json "$tmp"/ 2>/dev/null || true
+            cp summary.json paper.json "$tmp"/ ; cp state.json tournament.json "$tmp"/ 2>/dev/null || true
             ( cd "$tmp" && git init -q && git checkout -q -b data && git add . &&
               git -c user.name=btc-signal-bot -c user.email=actions@users.noreply.github.com \
                 commit -qm "data $(date -u +%FT%TZ)" &&
