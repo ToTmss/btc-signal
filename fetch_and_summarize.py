@@ -5,7 +5,26 @@ Outputs (committed to the repo):
   paper.json    – forward paper-trading of the engine's signals with fees (no real money)
 """
 import json, os, time, urllib.request, datetime
+import base64
 from engine import summarize, bias, FEE_SIDE
+from monitor import guards, check_position, filter_signals, brief
+
+
+def repo_json(path, default):
+    """Read a JSON file from the main branch via the REST API (fresh, no raw-CDN caching)."""
+    repo, tok = os.environ.get("REPO"), os.environ.get("GH_TOKEN")
+    if not repo:
+        try:
+            return json.load(open(path))
+        except Exception:
+            return default
+    try:
+        req = urllib.request.Request(f"https://api.github.com/repos/{repo}/contents/{path}?ref=main",
+                                     headers={**UA, "Authorization": f"Bearer {tok}"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(base64.b64decode(json.load(r)["content"]))
+    except Exception:
+        return default
 
 UA = {"User-Agent": "btc-signal-bot/1.0"}
 LEV = int(os.environ.get("LEV", "40"))
@@ -120,8 +139,14 @@ def main():
     s["fear_greed"] = fear_greed()
     s["events"] = upcoming_events(now)
     s["no_trade_window"] = any(-15 <= e["in_min"] <= 30 for e in s["events"])
+    pos, trades = repo_json("position.json", {}), repo_json("trades.json", [])
+    s["blocked"] = guards(trades, now)
+    s["signals"] = filter_signals(s, s["blocked"])
     s["paper"] = update_paper(s, tfs["1h"])
+    s["position"] = pos or None
+    s["pos_status"], s["action"] = check_position(pos, s, now) if pos else (None, None)
     s["params"] = {"lev": LEV, "strategies": ENABLED, "tf": TF_SIGNAL}
+    s["brief"] = brief(s, now)
     json.dump(s, open("summary.json", "w"), separators=(",", ":"))
     print(json.dumps(s, ensure_ascii=False)[:1500])
 
