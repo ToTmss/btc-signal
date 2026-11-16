@@ -5,7 +5,7 @@ Outputs (committed to the repo):
   paper.json    – forward paper-trading of the engine's signals with fees (no real money)
 """
 import json, os, time, urllib.request, datetime
-from engine import summarize, FEE_SIDE
+from engine import summarize, bias, FEE_SIDE
 
 UA = {"User-Agent": "btc-signal-bot/1.0"}
 LEV = int(os.environ.get("LEV", "40"))
@@ -24,6 +24,28 @@ def gemini(tf):
     d = sorted(get(f"https://api.gemini.com/v2/candles/btcusd/{tf}"))
     step = {"5m": 300, "15m": 900, "1hr": 3600}[tf] * 1000
     return [x for x in d if x[0] + step <= time.time() * 1000]
+
+
+def derivatives():
+    """Deribit BTC-PERPETUAL: funding (8h, %) and open interest; OI change vs previous run."""
+    try:
+        r = get("https://www.deribit.com/api/v2/public/ticker?instrument_name=BTC-PERPETUAL")["result"]
+    except Exception:
+        return None
+    oi = r.get("open_interest")
+    try:
+        prev = json.load(open("state.json"))
+    except Exception:
+        prev = {}
+    hist = [x for x in prev.get("oi_hist", []) if time.time() - x[0] < 4 * 3600] + [[time.time(), oi]]
+    json.dump({"oi_hist": hist}, open("state.json", "w"))
+    old = min(hist, key=lambda x: abs(time.time() - 3600 - x[0]))
+    return {
+        "funding_8h_pct": round(r.get("funding_8h", 0) * 100, 4),
+        "oi_usd_m": round(oi / 1e6, 1) if oi else None,
+        "oi_chg_1h_pct": round((oi / old[1] - 1) * 100, 2) if oi and old[1] and old[0] < time.time() - 1800 else None,
+        "basis_pct": round((r["mark_price"] / r["index_price"] - 1) * 100, 3),
+    }
 
 
 def fear_greed():
@@ -92,7 +114,9 @@ def main():
     tfs = {"5m": gemini("5m"), "15m": gemini("15m"), "1h": gemini("1hr")}
     s = summarize(tfs, lev=LEV, enabled=ENABLED)
     s["signals"] = [x for x in s["signals"] if x["tf"] == TF_SIGNAL]
-    s["generated_utc"] = now.isoformat(timespec="minutes")
+    s["generated_utc"] = now.isoformat(timespec="seconds")
+    s["deriv"] = derivatives()
+    s["bias"] = bias(s, s["deriv"])
     s["fear_greed"] = fear_greed()
     s["events"] = upcoming_events(now)
     s["no_trade_window"] = any(-15 <= e["in_min"] <= 30 for e in s["events"])

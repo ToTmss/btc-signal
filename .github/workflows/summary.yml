@@ -1,27 +1,49 @@
 name: btc-summary
+# One long job refreshes the summary every 2 minutes for ~5h50m.
+# Cron starts a new job every 3 hours; concurrency queues it behind the running one,
+# so coverage is continuous. Output lives on the `data` branch (single force-pushed commit,
+# no history bloat): summary.json, paper.json, state.json.
 on:
   schedule:
-    - cron: "*/10 * * * *"      # every 10 min (GitHub may delay runs by a few minutes)
+    - cron: "7 */3 * * *"
   workflow_dispatch: {}
 permissions:
   contents: write
 concurrency: { group: summary, cancel-in-progress: false }
 jobs:
-  run:
+  loop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 358
+    env:
+      LEV: "40"
+      STRATEGIES: "trend_pullback"
+      TF_SIGNAL: "1h"
+      INTERVAL: "120"
+      DURATION: "21000"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: python fetch_and_summarize.py
-        env:
-          LEV: "40"
-          STRATEGIES: "trend_pullback"
-          TF_SIGNAL: "1h"
-      - name: commit
+      - name: restore state from data branch
         run: |
-          git config user.name "btc-signal-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add summary.json paper.json
-          git diff --cached --quiet || git commit -m "summary $(date -u +%H:%M)" && git push
+          git fetch -q origin data || exit 0
+          git checkout origin/data -- paper.json state.json 2>/dev/null || true
+      - name: loop
+        run: |
+          publish() {
+            tmp=$(mktemp -d)
+            cp summary.json paper.json "$tmp"/ ; cp state.json "$tmp"/ 2>/dev/null || true
+            ( cd "$tmp" && git init -q && git checkout -q -b data && git add . &&
+              git -c user.name=btc-signal-bot -c user.email=actions@users.noreply.github.com \
+                commit -qm "data $(date -u +%FT%TZ)" &&
+              git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" data )
+            rm -rf "$tmp"
+          }
+          start=$(date +%s)
+          while [ $(( $(date +%s) - start )) -lt "$DURATION" ]; do
+            t0=$(date +%s)
+            python fetch_and_summarize.py > /dev/null && publish || echo "run failed $(date -u +%T)"
+            sleep $(( INTERVAL - ( $(date +%s) - t0 ) > 5 ? INTERVAL - ( $(date +%s) - t0 ) : 5 ))
+          done
