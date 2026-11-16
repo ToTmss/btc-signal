@@ -1,1 +1,10 @@
-{"open": null, "closed": [], "seen": []}
+{
+ "open": null,
+ "closed": [],
+ "seen": [],
+ "stats": {
+  "trades": 0,
+  "wins": 0,
+  "sum_ret_margin_pct": 0
+ }
+}
