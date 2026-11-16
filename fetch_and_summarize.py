@@ -90,7 +90,7 @@ def upcoming_events(now):
     return out
 
 
-def update_paper(summary, c1h):
+def update_paper(summary, c1h):  # c1h = candles of the signal timeframe
     """Forward-test: open hypothetical trades on fresh signals, close them on stop/tp/time."""
     try:
         paper = json.load(open("paper.json"))
@@ -142,7 +142,7 @@ def main():
     pos, trades = repo_json("position.json", {}), repo_json("trades.json", [])
     s["blocked"] = guards(trades, now)
     s["signals"] = filter_signals(s, s["blocked"])
-    s["paper"] = update_paper(s, tfs["1h"])
+    s["paper"] = update_paper(s, tfs[{"1h": "1h"}.get(TF_SIGNAL, TF_SIGNAL)])
     s["position"] = pos or None
     s["pos_status"], s["action"] = check_position(pos, s, now) if pos else (None, None)
     s["params"] = {"lev": LEV, "strategies": ENABLED, "tf": TF_SIGNAL}

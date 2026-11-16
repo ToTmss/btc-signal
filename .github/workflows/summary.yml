@@ -17,8 +17,8 @@ jobs:
     timeout-minutes: 358
     env:
       LEV: "40"
-      STRATEGIES: "trend_pullback"
-      TF_SIGNAL: "1h"
+      STRATEGIES: "trend_pullback,breakout"
+      TF_SIGNAL: "15m"
       INTERVAL: "120"
       DURATION: "21000"
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

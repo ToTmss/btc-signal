@@ -152,7 +152,7 @@ def s_false_break(c, ind, i, p):
 
 STRATEGIES = {
     "trend_pullback": (s_trend_pullback, {"buf": 0.2, "rr": 2.0, "max_bars": 48}),
-    "breakout": (s_breakout, {"n": 24, "volx": 1.5, "stop_atr": 1.2, "rr": 2.0, "max_bars": 48}),
+    "breakout": (s_breakout, {"n": 24, "volx": 1.5, "stop_atr": 1.2, "rr": 3.0, "max_bars": 48}),
     "false_break": (s_false_break, {"n": 24, "volx": 1.2, "buf": 0.1, "rr": 2.0, "max_bars": 36}),
 }
 
