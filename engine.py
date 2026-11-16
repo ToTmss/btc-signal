@@ -177,7 +177,44 @@ def s_rsi_revert(c, ind, i, p):
     return None
 
 
+def s_range_scalp(c, ind, i, p):
+    """Scalp inside a range: buy the lower edge / sell the upper edge after a turn bar."""
+    n = p["n"]
+    if i < n + 1:
+        return None
+    hh = max(x[2] for x in c[i - n:i]); ll = min(x[3] for x in c[i - n:i])
+    rng = hh - ll
+    _, o, h, l, cl, v = c[i]
+    a = ind["atr"][i]
+    if rng < 3 * a:
+        return None
+    if cl < ll + 0.2 * rng and cl > o:
+        return "long", min(l, ll) - 0.2 * a
+    if cl > hh - 0.2 * rng and cl < o:
+        return "short", max(h, hh) + 0.2 * a
+    return None
+
+
+def s_momentum_burst(c, ind, i, p):
+    """Follow 3 same-direction bars with rising volume."""
+    if i < 25:
+        return None
+    b = c[i - 2:i + 1]
+    a = ind["atr"][i]
+    up = all(x[4] > x[1] for x in b); dn = all(x[4] < x[1] for x in b)
+    vol_ok = b[2][5] > b[1][5] > b[0][5] and b[2][5] > ind["vol_avg"][i - 1]
+    if not vol_ok:
+        return None
+    if up:
+        return "long", c[i][4] - p["stop_atr"] * a
+    if dn:
+        return "short", c[i][4] + p["stop_atr"] * a
+    return None
+
+
 STRATEGIES = {
+    "range_scalp": (s_range_scalp, {"n": 24, "rr": 1.2, "max_bars": 12}),
+    "momentum_burst": (s_momentum_burst, {"stop_atr": 0.8, "rr": 1.2, "max_bars": 12}),
     "ema_cross": (s_ema_cross, {"stop_atr": 1.2, "rr": 1.5, "max_bars": 36}),
     "rsi_revert": (s_rsi_revert, {"lo": 28, "hi": 72, "rr": 1.5, "max_bars": 24}),
     "trend_pullback": (s_trend_pullback, {"buf": 0.2, "rr": 2.0, "max_bars": 48}),
