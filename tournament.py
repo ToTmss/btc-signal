@@ -11,8 +11,13 @@ TFS = ("5m", "15m")
 FILTERS = ("raw", "bias")          # bias = only trades that agree with the composite score
 
 
+# Pilot 2 (from 2026-11-17 10:15 Yekaterinburg): only the books that were not losing overnight.
+ACTIVE = ["15m:momentum_burst", "15m:trend_pullback", "15m:breakout", "15m:false_break",
+          "15m:rsi_revert", "5m:rsi_revert"]
+
+
 def books():
-    return [f"{tf}:{name}:{flt}" for tf in TFS for name in STRATEGIES for flt in FILTERS]
+    return [f"{x}:{flt}" for x in ACTIVE for flt in FILTERS]
 
 
 def _close(pos, c, lev):
