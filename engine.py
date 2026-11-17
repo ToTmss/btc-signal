@@ -6,6 +6,7 @@ Pure standard library so it runs anywhere (GitHub Actions, local, sandbox).
 from __future__ import annotations
 
 FEE_SIDE = 0.0009          # Telegram Wallet perps taker fee per side (0.09% of notional)
+MIN_TP = 0.0075            # take-profit at least 0.75% of price (≈ +22% of margin at 40x after fees)
 LIQ_FACTOR = 0.52          # observed: liquidation distance ≈ 0.52 / leverage (40x → ~1.3%)
 
 
@@ -228,6 +229,7 @@ def plan(side, entry, stop, rr, lev):
     risk = abs(entry - stop) / entry
     if risk < 0.0015 or risk > 0.85 * LIQ_FACTOR / lev:
         return None
+    rr = max(rr, MIN_TP / risk)
     tp = entry * (1 + rr * risk) if side == "long" else entry * (1 - rr * risk)
     net_win = lev * (rr * risk - 2 * FEE_SIDE)
     net_loss = lev * (risk + 2 * FEE_SIDE)
